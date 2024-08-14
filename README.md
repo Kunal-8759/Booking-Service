@@ -44,5 +44,5 @@ Lets take a look inside the `src` folder
 
  - To run the server execute
  ```
- npm run dev
+ npm start
  ```
