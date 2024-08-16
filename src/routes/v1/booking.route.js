@@ -7,4 +7,7 @@ const bookingRouter=express.Router();
 // api/v1/bookings POST
 bookingRouter.post('/',BookingMiddleware.validateCreateBookingRequest,BookingController.createBooking);
 
+// api/v1/bookings/payments POST
+bookingRouter.post('/payments',BookingMiddleware.validatePaymentRequest,BookingController.makePayment);
+
 module.exports=bookingRouter;
