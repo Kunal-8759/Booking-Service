@@ -13,3 +13,6 @@ at time t=0 pe cron job start hua -->
 we will calculate time jo 5 min phle tha uske start hone se  
      const time =new Date(Date.now()- 1000*300); //time 5 mins ago
 we will cancelled the booking which is createdAt lessThan 5 min , status != booked/cancelled
+
+ # to get reference about the idempotency key /api
+ ![alt text](image.png)
