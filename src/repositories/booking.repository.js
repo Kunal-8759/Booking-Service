@@ -12,7 +12,7 @@ class BookingRepository extends CrudRepository{
     }
 
     async get(data, transaction) {
-        const response = await this.model.findByPk(data, {transaction: transaction});
+        const response = await Booking.findByPk(data, {transaction: transaction});
         if(!response) {
             throw new AppError('Not able to find the resource', StatusCodes.NOT_FOUND);
         }

@@ -13,8 +13,6 @@ const bookingRepository = new BookingRepository();
 //     flightId
 //     noOfSeats
 // }
-
-
 async function createBooking(data){
     //unmanaged transaction
     const transaction = await db.sequelize.transaction();
@@ -68,11 +66,21 @@ async function makePayment(data){
             throw new AppError('The booking has expired', StatusCodes.BAD_REQUEST);
         }
 
+        if(bookingDetails.status==BOOKING_STATUS.BOOKED){
+            throw new AppError('Your ticket was Booked previously', StatusCodes.BAD_REQUEST);
+        }
+
         const bookingTime = new Date(bookingDetails.createdAt);//whem booking has been initiated
         const currentTime = new Date();//current time is the time of the payment
 
-        if(currentTime-bookingTime > 300000 && bookingDetails.status==BOOKING_STATUS.INITIATED){//if payment try to do in more than 5 minutes
-            await bookingRepository.update(data.bookingId, {status:BOOKING_STATUS.CANCELLED}, transaction);
+
+        //if the booking status is confirmed once -->status :BOOKED
+        //now by mistake the user try to book the ticket again 
+        // 1.within the 5 minutes
+        // 2.after the 5 minutes
+
+        if(currentTime-bookingTime > 300000){//if payment try to  do after 5 minutes
+            await cancelBooking(data.bookingId);
             throw new AppError('The booking has expired', StatusCodes.BAD_REQUEST);
         }
 
@@ -90,6 +98,30 @@ async function makePayment(data){
 
     } catch (error) {
         await transaction.commit();
+        throw error;
+    }
+}
+
+async function cancelBooking(bookingId){
+    const transaction = await db.sequelize.transaction();
+    try {
+        const bookingDetails = await bookingRepository.get(bookingId,transaction);
+
+        if(bookingDetails.status==BOOKING_STATUS.CANCELLED ){//phle se hi cancel hai wo bookingId
+            await transaction.commit();
+            return true;
+        }
+
+        //if the status is not cancelled then we have to update it to cancelled and increase the noOfseats in the flight it has been occupying
+        await bookingRepository.update(bookingId,{status : BOOKING_STATUS.CANCELLED},transaction);
+        await axios.patch(`${serverConfig.FLIGHT_SERVICE_URL}/api/v1/flights/${bookingDetails.flightId}/seats`,{
+            seats : bookingDetails.noOfSeats,
+            dec : 0
+        });
+
+        await transaction.commit();
+    } catch (error) {
+        await transaction.rollback();
         throw error;
     }
 }
