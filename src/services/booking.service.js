@@ -6,6 +6,7 @@ const AppError = require('../utils/Errors/app.error');
 const {BOOKING_STATUS} = require('../utils/common/enum')
 
 const {BookingRepository} = require('../repositories');
+const { Queue } = require('../config');
 
 const bookingRepository = new BookingRepository();
 // data : {
@@ -18,6 +19,9 @@ async function createBooking(data){
     const transaction = await db.sequelize.transaction();
     try {
         const flight = await axios.get(`${serverConfig.FLIGHT_SERVICE_URL}/api/v1/flights/${data.flightId}`);
+        //to check that user is present or not
+        const user = await axios.get(`${serverConfig.API_GATEWAY_URL}/api/v1/user/${data.userId}`);
+
         const flightData=flight.data.data;
 
         if(data.noOfSeats > flightData.totalSeats){
@@ -46,6 +50,9 @@ async function createBooking(data){
         await transaction.rollback();
         if(error.message=='Not enough Seats available'){
             throw new AppError('Not enough Seats available',StatusCodes.BAD_REQUEST);
+        }
+        if(error.name=='AxiosError'){
+            throw new AppError('Either flight is not present or user is not signed In',StatusCodes.BAD_REQUEST);
         }
         throw new AppError(`something went wrong while creating Booking`,StatusCodes.INTERNAL_SERVER_ERROR);
     }
@@ -91,9 +98,14 @@ async function makePayment(data){
         if(bookingDetails.userId != data.userId) {
             throw new AppError('The user corresponding to the booking doesnt match', StatusCodes.BAD_REQUEST);
         }
-
         // we assume here that payment is successful
         await bookingRepository.update(data.bookingId, {status: BOOKING_STATUS.BOOKED}, transaction);
+
+        Queue.sendData({
+            recepientEmail : await getEmail(data.userId),
+            subject : 'Flight Booked',
+            text : `Booking successfully done for the booking ${data.bookingId}`
+        });
         await transaction.commit();
 
     } catch (error) {
@@ -136,8 +148,19 @@ async function cancelOldBookings() {
     }
 }
 
+async function getEmail(id){
+    try {
+        const user = await axios.get(`${serverConfig.API_GATEWAY_URL}/api/v1/user/${id}`);
+        return user.data.data.email;
+    } catch (error) {
+        console.log(error);
+    }
+}
+
+
 module.exports={
     createBooking,
     makePayment,
     cancelOldBookings
 }
+
