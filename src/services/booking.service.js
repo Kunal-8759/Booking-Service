@@ -103,8 +103,10 @@ async function makePayment(data){
 
         Queue.sendData({
             recepientEmail : await getEmail(data.userId),
-            subject : 'Flight Booked',
-            text : `Booking successfully done for the booking ${data.bookingId}`
+            subject : `Flight Booked for Booking Id ${data.bookingId}`,
+            text : `Hey User
+            
+            Booking successfully done for the booking ${data.bookingId}`
         });
         await transaction.commit();
 
@@ -138,11 +140,20 @@ async function cancelBooking(bookingId){
     }
 }
 
-async function cancelOldBookings() {
+async function cancelOldBookings(unpaidBookingId) {
+    try {
+        const response =await bookingRepository.cancelOldBookings(unpaidBookingId);
+        return response;
+    } catch (error) {
+        console.log(error);
+    }
+}
+
+async function getOldBooking(){
     try {
         const time =new Date(Date.now()- 1000*300); //time 5 mins ago
-        const response =await bookingRepository.cancelOldBookings(time);
-        return response;
+        const unpaidbookingId =await bookingRepository.getOldBooking(time);
+        return unpaidbookingId;
     } catch (error) {
         console.log(error);
     }
@@ -161,6 +172,7 @@ async function getEmail(id){
 module.exports={
     createBooking,
     makePayment,
-    cancelOldBookings
+    cancelOldBookings,
+    getOldBooking
 }
 

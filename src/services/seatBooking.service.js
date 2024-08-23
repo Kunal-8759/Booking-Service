@@ -61,6 +61,17 @@ async function seatBooking(data){
     }
 }
 
+async function destroyUnpaidBooking(unpaidBookingId){
+    try {
+        const response = await seatBookingRepo.destroyUnpaidBooking(unpaidBookingId);
+        return response;
+    }
+    catch(error){
+        console.log(error);
+    }
+}
+
 module.exports={
-    seatBooking
+    seatBooking,
+    destroyUnpaidBooking
 }

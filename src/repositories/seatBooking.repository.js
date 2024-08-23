@@ -9,6 +9,16 @@ class SeatBookingRepository extends CrudRepository{
         const response = await SeatBooking.create(data,{transaction:transaction});
         return response;
     }
+
+    async destroyUnpaidBooking(unpaidBookingId){
+        const response = await SeatBooking.destroy({
+            where : {
+                bookingId : unpaidBookingId
+            }
+        });
+        return response;
+        
+    }
 }
 
 module.exports=SeatBookingRepository;

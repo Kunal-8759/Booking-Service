@@ -31,10 +31,19 @@ class BookingRepository extends CrudRepository{
         return response;
     }
 
-    async cancelOldBookings(timestamp){
+    async cancelOldBookings(unpaidBookingId){
         const response =await Booking.update({
             status:BOOKING_STATUS.CANCELLED
-        },
+        },{
+            where: {
+                id: unpaidBookingId
+            }
+        });
+        return response;
+    }
+
+    async getOldBooking(timestamp){
+        const response =await Booking.findAll(
         {
             where:{
                 [Op.and]:[
@@ -54,10 +63,12 @@ class BookingRepository extends CrudRepository{
                         }
                     }
                 ]
-            }
+            },
+            attributes: ['id'] //only select the bookingId
         });
 
-        return response;
+        const bookingIds = response.map(booking => booking.id);
+        return bookingIds;
     }
 
 }
