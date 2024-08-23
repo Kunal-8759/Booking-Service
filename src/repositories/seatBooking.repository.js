@@ -19,6 +19,18 @@ class SeatBookingRepository extends CrudRepository{
         return response;
         
     }
+
+    async getSeats(bookingId){
+        const response =await SeatBooking.findAll({
+            where : {
+                bookingId :bookingId
+            },
+            attributes: ['seatId'] 
+        });
+
+        const seatsIds = response.map(seat => seat.seatId);
+        return seatsIds;
+    }
 }
 
 module.exports=SeatBookingRepository;

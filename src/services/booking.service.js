@@ -5,10 +5,11 @@ const { StatusCodes } = require('http-status-codes');
 const AppError = require('../utils/Errors/app.error');
 const {BOOKING_STATUS} = require('../utils/common/enum')
 
-const {BookingRepository} = require('../repositories');
+const {BookingRepository,SeatBookingRepository} = require('../repositories');
 const { Queue } = require('../config');
 
 const bookingRepository = new BookingRepository();
+const seatBookingRepo = new SeatBookingRepository();
 // data : {
 //     userId
 //     flightId
@@ -101,18 +102,40 @@ async function makePayment(data){
         // we assume here that payment is successful
         await bookingRepository.update(data.bookingId, {status: BOOKING_STATUS.BOOKED}, transaction);
 
+
+        const seatsBooked = await seatBooked(data.bookingId);
+
         Queue.sendData({
             recepientEmail : await getEmail(data.userId),
-            subject : `Flight Booked for Booking Id ${data.bookingId}`,
-            text : `Hey User
+            subject : `Your Booking Confirmation - Booking ID: ${data.bookingId}`,
+            text : `Dear User ${data.userId}
+
+We are pleased to inform you that your booking has been confirmed. Below are the details of your booking:
+
+Booking Details : 
+
+- Booking Id : ${data.bookingId}
+- Flight Id : ${bookingDetails.flightId}
+- Seats Booked: ${seatsBooked.join(', ')}
+- Total  Cost : ${data.totalCost}
+
+Thank you for choosing our airline. We hope you have a pleasant journey!
+
+If you have any questions or need further assistance, please feel free to contact our customer support.
             
-            Booking successfully done for the booking ${data.bookingId}`
+Safe travels,
+K&P Flyways
+`
         });
         await transaction.commit();
 
     } catch (error) {
+        console.log(error);
         await transaction.commit();
-        throw error;
+        if(error instanceof AppError){
+            throw error;
+        }
+        throw new AppError('Something went wrong while making payment',StatusCodes.INTERNAL_SERVER_ERROR);
     }
 }
 
@@ -163,6 +186,16 @@ async function getEmail(id){
     try {
         const user = await axios.get(`${serverConfig.API_GATEWAY_URL}/api/v1/user/${id}`);
         return user.data.data.email;
+    } catch (error) {
+        console.log(error);
+    }
+}
+
+
+async function seatBooked(bookingId){
+    try {
+        const seatIds = await seatBookingRepo.getSeats(bookingId);
+        return seatIds;
     } catch (error) {
         console.log(error);
     }
