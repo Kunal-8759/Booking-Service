@@ -1,5 +1,5 @@
 const { StatusCodes } = require("http-status-codes");
-const { BookingService } = require("../services");
+const { BookingService ,SeatBookingService} = require("../services");
 
 const Redis = require('ioredis');
 const redisCache = new Redis(); 
@@ -66,7 +66,48 @@ async function makePayment(req,res){
     }
 }
 
+async function seatBooking(req,res){
+    try {
+        const idempotencyKey=req.headers['y-idempotency-key'];
+        if(!idempotencyKey){
+            return res.status(StatusCodes.BAD_REQUEST).json({
+                success:false,
+                message:"idempotency Key is missing",
+                data:{},
+                error:{}
+            })
+        }
+
+        if(await redisCache.get(idempotencyKey)){
+            return res.status(StatusCodes.BAD_REQUEST).json({
+                success:false,
+                message:"cannot retry on a successfully seat-booking",
+                data:{},
+                error:{}
+            })
+        }
+        //if idempotenccy key is not avilable in the redis
+        const response =await SeatBookingService.seatBooking(req.body);
+
+        redisCache.set(idempotencyKey,idempotencyKey);
+        return res.status(StatusCodes.OK).json({
+            success:true,
+            message:"seat-Booking done successfully",
+            data:response,
+            error:{}
+        })
+    } catch (error) {
+        return res.status(error.statusCode).json({
+            success:false,
+            message:"something went wrong",
+            data:{},
+            error:error
+        });
+    }
+}
+
 module.exports={
     createBooking,
-    makePayment
+    makePayment,
+    seatBooking
 }

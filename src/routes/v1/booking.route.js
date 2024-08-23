@@ -10,4 +10,6 @@ bookingRouter.post('/',BookingMiddleware.validateCreateBookingRequest,BookingCon
 // api/v1/bookings/payments POST
 bookingRouter.post('/payments',BookingMiddleware.validatePaymentRequest,BookingController.makePayment);
 
+bookingRouter.post('/seats',BookingController.seatBooking);
+
 module.exports=bookingRouter;
