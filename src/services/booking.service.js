@@ -103,29 +103,12 @@ async function makePayment(data){
         await bookingRepository.update(data.bookingId, {status: BOOKING_STATUS.BOOKED}, transaction);
 
 
-        const seatsBooked = await seatBooked(data.bookingId);
+        const Text = await EmailDataSend(data.bookingId,bookingDetails.flightId,data.userId,data.totalCost);
 
         Queue.sendData({
             recepientEmail : await getEmail(data.userId),
             subject : `Your Booking Confirmation - Booking ID: ${data.bookingId}`,
-            text : `Dear User ${data.userId}
-
-We are pleased to inform you that your booking has been confirmed. Below are the details of your booking:
-
-Booking Details : 
-
-- Booking Id : ${data.bookingId}
-- Flight Id : ${bookingDetails.flightId}
-- Seats Booked: ${seatsBooked.join(', ')}
-- Total  Cost : ${data.totalCost}
-
-Thank you for choosing our airline. We hope you have a pleasant journey!
-
-If you have any questions or need further assistance, please feel free to contact our customer support.
-            
-Safe travels,
-K&P Flyways
-`
+            text : Text
         });
         await transaction.commit();
 
@@ -192,10 +175,67 @@ async function getEmail(id){
 }
 
 
-async function seatBooked(bookingId){
+async function EmailDataSend(bookingId,flightId,userId,totalCost){
     try {
         const seatIds = await seatBookingRepo.getSeats(bookingId);
-        return seatIds;
+
+        const flight = await axios.get(`${serverConfig.FLIGHT_SERVICE_URL}/api/v1/flights/${flightId}`);
+        const flightData=flight.data.data;
+
+        const user = await axios.get(`${serverConfig.API_GATEWAY_URL}/api/v1/user/${userId}`);
+        const userData = user.data.data;
+
+        const seatPromises = seatIds.map(seatId => 
+            axios.get(`${serverConfig.FLIGHT_SERVICE_URL}/api/v1/seats/${seatId}`)
+        );
+        const seats = await Promise.all(seatPromises);
+        const seatData = seats.map(seat => seat.data);
+        
+        const simplifiedSeatData = seatData.map(seat => {
+            const { row, col, type } = seat.data;
+            return `${row}${col} ${type}  `;
+        });
+
+        const departureTime=new Date(flightData.departureTime);
+        const arrivalTime = new Date(flightData.arrivalTime);
+        const options = { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit', 
+            hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
+
+        const departureTimeIST = new Intl.DateTimeFormat('en-GB', options).format(departureTime);    
+        const arrivalTimeIST = new Intl.DateTimeFormat('en-GB', options).format(arrivalTime);
+        
+        const emailText=`
+Dear ${userData.name},
+
+We are pleased to confirm your booking with us! Here are the details of your upcoming flight:
+
+
+- Booking ID : ${bookingId}
+- Flight : ${flightData.flightNumber}
+
+                       ${flightData.departureAirportId}              ➔            ${flightData.arrivalAirportId}
+            ${departureTimeIST} ➔  ${arrivalTimeIST}
+
+Passenger Information:
+
+- Passenger Name : ${userData.name}
+- Seat Number : ${simplifiedSeatData}
+
+
+- Total Cost : ${totalCost}
+
+
+We hope you have a comfortable and enjoyable journey with us. Please make sure to arrive at the airport at least two hours before the departure time to ensure a smooth check-in process.
+
+If you have any questions or need further assistance, feel free to contact our customer support team.
+
+Thank you for choosing us for your travel needs!
+
+Safe travels,
+K&P Flyways
+        `
+        
+        return emailText;
     } catch (error) {
         console.log(error);
     }
